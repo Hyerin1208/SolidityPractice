@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.4.22 <0.9.0;
+
+/*
+1. 10개의 아이템이 존재
+2. 뽑기 1회 당 정해진 가스를 소모 
+3. 랜덤 확률로 아이템을 획득
+4. 뽑기 5회마다 1회의 보너스 기회 (이벤트를 통해 처리)
+*/
+
+contract Items {
+    // 결과
+    event Result(address indexed _Addr, uint indexed _Count, uint _Item);
+    // 보너스이벤트
+    event BonusItem(address indexed _Addr, uint256 payment); // 게임한사람과 얼마냈는지 2가지 
+
+    address public owner = msg.sender;
+
+    receive()external payable { //이더 수신
+        require(msg.value == 1 ether, "1 ether only");
+
+    } 
+
+    // 아이템 리스트 // uint256 constant TOTAL_ITEMS = 10;
+    uint[10] public itemList = [1,2,3,4,5,6,7,8,9,10];
+
+    uint private Count; // 뽑기한 횟수
+    mapping(address => uint[]) public PlayerItems; // 계정당 items
+    mapping(address => uint) private PlayerCount; // 계정당 횟수
+    mapping(address => bool) private bonus; // 보너스 (5+1조건..)
+
+    function randomItem() internal view returns(uint){
+        return uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp, Count, PlayerCount[msg.sender]))) % 10;
+    }
+    
+    function randomFunc() public payable {
+        require(msg.value == 1 ether);
+        uint random = itemList[randomItem()];
+        PlayerItems[msg.sender].push(random);
+
+        PlayerCount[msg.sender]++;
+
+        emit Result(msg.sender, PlayerCount[msg.sender], random);
+
+        if(PlayerCount[msg.sender] % 5 == 0) {
+            bonus[msg.sender] = true;
+        }
+
+    }
+
+    function bonusFunc() public {
+        require(bonus[msg.sender] == true, "Have no chance");
+        Count++;
+        uint chance = itemList[randomItem()];
+        PlayerItems[msg.sender].push(chance);
+        emit BonusItem(msg.sender, chance);
+        bonus[msg.sender] = false;
+    }
+
+    
+    function getBalance() public view returns(uint[] memory){
+        return PlayerItems[msg.sender];
+    }
+ 
+}
+
+
+
